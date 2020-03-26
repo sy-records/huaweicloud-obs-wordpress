@@ -1,0 +1,5 @@
+{
+    "require": {
+        "obs/esdk-obs-php": "^3.19"
+    }
+}
