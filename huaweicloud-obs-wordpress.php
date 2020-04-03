@@ -3,7 +3,7 @@
 Plugin Name: OBS HuaWeiCloud
 Plugin URI: https://github.com/sy-records/huaweicloud-obs-wordpress
 Description: 使用华为云对象存储服务 OBS 作为附件存储空间。（This is a plugin that uses HuaWei Cloud Object Storage Service for attachments remote saving.）
-Version: 1.0.0
+Version: 1.0.1
 Author: 沈唁
 Author URI: https://qq52o.me
 License: Apache 2.0
@@ -14,7 +14,7 @@ require_once 'esdk-obs-php/vendor/autoload.php';
 use Obs\ObsClient;
 use Obs\ObsException;
 
-define('OBS_VERSION', "1.0.0");
+define('OBS_VERSION', "1.0.1");
 define('OBS_BASEFOLDER', plugin_basename(dirname(__FILE__)));
 
 // 初始化选项
@@ -64,7 +64,7 @@ function obs_get_bucket_name()
  * @param  $opt
  * @return bool
  */
-function obs_file_upload($object, $file)
+function obs_file_upload($object, $file, $no_local_file = false)
 {
     //如果文件不存在，直接返回false
     if (!@file_exists($file)) {
@@ -84,6 +84,9 @@ function obs_file_upload($object, $file)
         echo 'Error Code:' . $e->getExceptionCode () . PHP_EOL;
         echo 'Request ID:' . $e->getRequestId () . PHP_EOL;
         echo 'Exception Type:' . $e->getExceptionType () . PHP_EOL;
+    }
+    if ($no_local_file) {
+        obs_delete_local_file($file);
     }
 }
 
@@ -155,12 +158,8 @@ function obs_upload_attachments($metadata)
     $file = get_home_path() . $object; //向上兼容，较早的WordPress版本上$metadata['file']存放的是相对路径
 
     //执行上传操作
-    obs_file_upload('/' . $object, $file);
+    obs_file_upload('/' . $object, $file, obs_is_delete_local_file());
 
-    //如果不在本地保存，则删除本地文件
-    if (obs_is_delete_local_file()) {
-        obs_delete_local_file($file);
-    }
     return $metadata;
 }
 
@@ -180,8 +179,6 @@ function obs_upload_thumbs($metadata)
         $obs_options = get_option('obs_options', true);
         //是否需要上传缩略图
         $nothumb = (esc_attr($obs_options['nothumb']) == 'true');
-        //是否需要删除本地文件
-        $is_delete_local_file = (esc_attr($obs_options['nolocalsaving']) == 'true');
         //如果禁止上传缩略图，就不用继续执行了
         if ($nothumb) {
             return $metadata;
@@ -209,13 +206,7 @@ function obs_upload_thumbs($metadata)
             $file = $file_path . $val['file'];
 
             //执行上传操作
-            obs_file_upload($object, $file);
-
-            //如果不在本地保存，则删除
-            if ($is_delete_local_file) {
-                obs_delete_local_file($file);
-            }
-
+            obs_file_upload($object, $file, (esc_attr($obs_options['nolocalsaving']) == 'true'));
         }
     }
     return $metadata;
