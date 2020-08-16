@@ -2,10 +2,12 @@
 
 使用华为云对象存储服务 OBS 作为附件存储空间的 WordPress 插件
 
-[![Latest Version](https://img.shields.io/github/release/sy-records/huaweicloud-obs-wordpress.svg?style=flat-square)](https://github.com/sy-records/huaweicloud-obs-wordpress/releases)
-[![License](https://img.shields.io/github/license/sy-records/huaweicloud-obs-wordpress?color=blue)](LICENSE)
-[![contact-@Luffy](https://img.shields.io/badge/contact-@Luffy-blue.svg)](https://qq52o.me)
+[![Latest Version](https://img.shields.io/github/release/sy-records/huaweicloud-obs-wordpress.svg)](https://github.com/sy-records/huaweicloud-obs-wordpress/releases)
+[![License](https://img.shields.io/github/license/sy-records/huaweicloud-obs-wordpress?color=red)](LICENSE)
+[![website](https://img.shields.io/badge/website-qq52o.me-blue)](https://qq52o.me)
 [![contributors](https://img.shields.io/github/contributors/sy-records/huaweicloud-obs-wordpress?color=blue)](https://github.com/sy-records/huaweicloud-obs-wordpress/graphs/contributors)
+[![plugin stars](https://img.shields.io/wordpress/plugin/stars/obs-huaweicloud)](https://wordpress.org/plugins/obs-huaweicloud/)
+[![plugin installs](https://img.shields.io/wordpress/plugin/installs/obs-huaweicloud)](https://wordpress.org/plugins/obs-huaweicloud/)
 
 ## 插件特色
 
@@ -24,9 +26,9 @@ WordPress 后台安装插件页面搜索`OBS HuaWeiCloud`，点击安装
 
 ### 下载源码
 
-从 Github 下载源码，通过 WordPress 后台上传安装，或者直接将源码上传到 WordPress 插件目录`wp-content/plugins`，然后在后台启用
+从 GitHub 下载源码，通过 WordPress 后台上传安装，或者直接将源码上传到 WordPress 插件目录`wp-content/plugins`，然后在后台启用
 
-Github 下载节点：[https://github.com/sy-records/huaweicloud-obs-wordpress/releases/latest](https://github.com/sy-records/huaweicloud-obs-wordpress/releases/latest)
+GitHub 下载节点：[https://github.com/sy-records/huaweicloud-obs-wordpress/releases/latest](https://github.com/sy-records/huaweicloud-obs-wordpress/releases/latest)
 
 ## 修改配置
 
