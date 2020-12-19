@@ -3,7 +3,7 @@
 Plugin Name: OBS HuaWeiCloud
 Plugin URI: https://github.com/sy-records/huaweicloud-obs-wordpress
 Description: 使用华为云对象存储服务 OBS 作为附件存储空间。（This is a plugin that uses HuaWei Cloud Object Storage Service for attachments remote saving.）
-Version: 1.2.0
+Version: 1.2.1
 Author: 沈唁
 Author URI: https://qq52o.me
 License: Apache 2.0
@@ -14,7 +14,7 @@ require_once 'esdk-obs-php/vendor/autoload.php';
 use Obs\ObsClient;
 use Obs\ObsException;
 
-define('OBS_VERSION', '1.2.0');
+define('OBS_VERSION', '1.2.1');
 define('OBS_BASEFOLDER', plugin_basename(dirname(__FILE__)));
 
 // 初始化选项
@@ -272,9 +272,9 @@ function obs_delete_remote_attachment($post_id) {
 
         $deleteObjects[] = ['Key' => str_replace("\\", '/', $file_path)];
 
-        $obs_options = get_option('obs_options', true);
-        $is_nothumb = (esc_attr($obs_options['nothumb']) == 'false');
-        if ($is_nothumb) {
+//        $obs_options = get_option('obs_options', true);
+//        $is_nothumb = (esc_attr($obs_options['nothumb']) == 'false');
+//        if ($is_nothumb) {
             // 删除缩略图
             if (isset($meta['sizes']) && count($meta['sizes']) > 0) {
                 foreach ($meta['sizes'] as $val) {
@@ -282,7 +282,7 @@ function obs_delete_remote_attachment($post_id) {
                     $deleteObjects[] = ['Key' => str_replace("\\", '/', $size_file)];
                 }
             }
-        }
+//        }
 
         obs_delete_obs_files($deleteObjects);
     }
