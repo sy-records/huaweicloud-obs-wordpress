@@ -1,0 +1,11 @@
+*.github
+*.gitignore
+*.gitattributes
+*.yml
+*examples
+*tests
+*.zip
+/.git
+/.distignore
+/sdk/composer.lock
+/sdk/vendor/obs/esdk-obs-php/release
