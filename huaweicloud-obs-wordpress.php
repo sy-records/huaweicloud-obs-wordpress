@@ -229,21 +229,6 @@ function obs_upload_thumbs($metadata)
     }
     obs_file_upload($object, $file, $no_local_file);
 
-    // Maybe there is a problem with the old version
-    $file = $basedir . '/' . $metadata['file'];
-    $upload_path = get_option('upload_path');
-    if ($upload_path != '.') {
-        $path_array = explode($upload_path, $file);
-        if (isset($path_array[1]) && !empty($path_array[1])) {
-            $object = '/' . $upload_path . $path_array[1];
-        }
-    } else {
-        $object = '/' . $metadata['file'];
-        $file = str_replace('./', '', $file);
-    }
-
-    obs_file_upload($object, $file, esc_attr($obs_options['nolocalsaving']) == 'true');
-
     //得到本地文件夹和远端文件夹
     $dirname = dirname($metadata['file']);
     $file_path = $dirname != '.' ? "{$basedir}/{$dirname}/" : "{$basedir}/";
