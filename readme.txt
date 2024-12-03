@@ -4,8 +4,8 @@ Donate link: https://qq52o.me/sponsor.html
 Tags: OBS, 华为云, 对象存储, HuaWei
 Requires at least: 4.6
 Tested up to: 6.7
-Requires PHP: 7.0.0
-Stable tag: 1.3.0
+Requires PHP: 7.2
+Stable tag: 1.4.0
 License: Apache 2.0
 License URI: http://www.apache.org/licenses/LICENSE-2.0.html
 
@@ -59,6 +59,10 @@ QQ交流群：887595381
 这个插件已经加上了替换数据库中之前的旧资源地址链接功能，只需要填好对应的链接即可
 
 == Changelog ==
+
+= 1.4.0 =
+* 同步支持地域
+* 优化代码
 
 = 1.3.0 =
 * 支持 WordPress 6.3 版本

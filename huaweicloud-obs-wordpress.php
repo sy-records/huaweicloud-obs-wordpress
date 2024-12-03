@@ -3,7 +3,7 @@
 Plugin Name: OBS HuaWeiCloud
 Plugin URI: https://github.com/sy-records/huaweicloud-obs-wordpress
 Description: 使用华为云对象存储服务 OBS 作为附件存储空间。（This is a plugin that uses HuaWei Cloud Object Storage Service for attachments remote saving.）
-Version: 1.3.0
+Version: 1.4.0
 Author: 沈唁
 Author URI: https://qq52o.me
 License: Apache 2.0
@@ -14,15 +14,18 @@ require_once 'sdk/vendor/autoload.php';
 use Obs\ObsClient;
 use Obs\ObsException;
 
-define('OBS_VERSION', '1.3.0');
+define('OBS_VERSION', '1.4.0');
 define('OBS_BASEFOLDER', plugin_basename(dirname(__FILE__)));
+
+if (!function_exists('get_home_path')) {
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+}
 
 // 初始化选项
 register_activation_hook(__FILE__, 'obs_set_options');
-// 初始化选项
-function obs_set_options()
+function obs_get_default_options()
 {
-    $options = array(
+    return [
         'bucket' => "",
         'regional' => "cn-east-3",
         'key' => "",
@@ -30,13 +33,16 @@ function obs_set_options()
         'nothumb' => "false", // 是否上传缩略图
         'nolocalsaving' => "false", // 是否保留本地备份
         'upload_url_path' => "", // URL前缀
-    );
-    add_option('obs_options', $options, '', 'yes');
+    ];
+}
+function obs_set_options()
+{
+    add_option('obs_options', obs_get_default_options(), '', 'yes');
 }
 
 function obs_get_client()
 {
-    $obs_opt = get_option('obs_options', true);
+    $obs_opt = get_option('obs_options', obs_get_default_options());
     return new ObsClient([
         'key' => esc_attr($obs_opt['key']),
         'secret' => esc_attr($obs_opt['secret']),
@@ -52,14 +58,14 @@ function obs_get_bucket_endpoint($obs_option)
 
 function obs_get_bucket_name()
 {
-    $obs_opt = get_option('obs_options', true);
+    $obs_opt = get_option('obs_options', obs_get_default_options());
     return $obs_opt['bucket'];
 }
 
 /**
- * @param $object
- * @param $file
- * @param false $no_local_file
+ * @param string $object
+ * @param string $file
+ * @param bool $no_local_file
  */
 function obs_file_upload($object, $file, $no_local_file = false)
 {
@@ -69,18 +75,14 @@ function obs_file_upload($object, $file, $no_local_file = false)
     }
     $bucket_name = obs_get_bucket_name();
     $obsClient = obs_get_client();
-    try{
+    try {
         $obsClient->putObject([
             'Bucket' => $bucket_name,
             'Key' => ltrim($object, '/'),
             'SourceFile' => $file
         ]);
-    } catch ( ObsException $e ) {
-        echo 'Response Code:' . $e->getStatusCode () . PHP_EOL;
-        echo 'Error Message:' . $e->getExceptionMessage () . PHP_EOL;
-        echo 'Error Code:' . $e->getExceptionCode () . PHP_EOL;
-        echo 'Request ID:' . $e->getRequestId () . PHP_EOL;
-        echo 'Exception Type:' . $e->getExceptionType () . PHP_EOL;
+    } catch (ObsException $e) {
+        error_log($e->getMessage());
     }
     if ($no_local_file) {
         obs_delete_local_file($file);
@@ -94,8 +96,8 @@ function obs_file_upload($object, $file, $no_local_file = false)
  */
 function obs_is_delete_local_file()
 {
-    $obs_options = get_option('obs_options', true);
-    return (esc_attr($obs_options['nolocalsaving']) == 'true');
+    $obs_options = get_option('obs_options', obs_get_default_options());
+    return esc_attr($obs_options['nolocalsaving']) == 'true';
 }
 
 /**
@@ -126,7 +128,7 @@ function obs_delete_local_file($file)
 /**
  * 删除obs中的单个文件
  * @param $file
- * @return bool
+ * @return void
  */
 function obs_delete_obs_file($file)
 {
@@ -141,28 +143,34 @@ function obs_delete_obs_file($file)
  */
 function obs_delete_obs_files($files)
 {
+    $deleteObjects = [];
+    foreach ($files as $file) {
+        $fileKey = str_replace(["\\", './'], ['/', ''], $file);
+        $deleteObjects[] = ['Key' => $fileKey];
+    }
+
     $bucket = obs_get_bucket_name();
     $obsClient = obs_get_client();
-    $obsClient->deleteObjects(array('Bucket' => $bucket, 'Objects' => $files, 'Quiet' => false));
+    $obsClient->deleteObjects(array('Bucket' => $bucket, 'Objects' => $deleteObjects, 'Quiet' => false));
 }
 
 /**
  * 上传附件（包括图片的原图）
  *
  * @param  $metadata
- * @return array()
+ * @return array
  */
 function obs_upload_attachments($metadata)
 {
     $mime_types = get_allowed_mime_types();
-    $image_mime_types = array(
+    $image_mime_types = [
         $mime_types['jpg|jpeg|jpe'],
         $mime_types['gif'],
         $mime_types['png'],
         $mime_types['bmp'],
         $mime_types['tiff|tif'],
-        $mime_types['ico'],
-    );
+        $mime_types['ico']
+    ];
 
     // 例如mp4等格式 上传后根据配置选择是否删除 删除后媒体库会显示默认图片 点开内容是正常的
     // 图片在缩略图处理
@@ -188,6 +196,7 @@ function obs_upload_attachments($metadata)
 //避免上传插件/主题时出现同步到obs的情况
 if (substr_count($_SERVER['REQUEST_URI'], '/update.php') <= 0) {
     add_filter('wp_handle_upload', 'obs_upload_attachments', 50);
+    add_filter('wp_generate_attachment_metadata', 'obs_upload_thumbs', 100);
 }
 
 /**
@@ -195,94 +204,100 @@ if (substr_count($_SERVER['REQUEST_URI'], '/update.php') <= 0) {
  */
 function obs_upload_thumbs($metadata)
 {
+    if (empty($metadata['file'])) {
+        return $metadata;
+    }
+
     //获取上传路径
     $wp_uploads = wp_upload_dir();
     $basedir = $wp_uploads['basedir'];
+    $upload_path = get_option('upload_path');
     //获取obs插件的配置信息
-    $obs_options = get_option('obs_options', true);
-    if (isset($metadata['file'])) {
-        // Maybe there is a problem with the old version
-        $file = $basedir . '/' . $metadata['file'];
-        $upload_path = get_option('upload_path');
-        if ($upload_path != '.') {
-            $path_array = explode($upload_path, $file);
-            if (isset($path_array[1]) && !empty($path_array[1])) {
-                $object = '/' . $upload_path . $path_array[1];
-            }
-        } else {
-            $object = '/' . $metadata['file'];
-            $file = str_replace('./', '', $file);
-        }
+    $obs_options = get_option('obs_options', obs_get_default_options());
+    $no_local_file = esc_attr($obs_options['nolocalsaving']) == 'true';
+    $no_thumb = esc_attr($obs_options['nothumb']) == 'true';
 
-        obs_file_upload($object, $file, (esc_attr($obs_options['nolocalsaving']) == 'true'));
+    $file = $basedir . '/' . $metadata['file'];
+    if ($upload_path != '.') {
+        $path_array = explode($upload_path, $file);
+        if (count($path_array) >= 2) {
+            $object = '/' . $upload_path . end($path_array);
+        }
+    } else {
+        $object = '/' . $metadata['file'];
+        $file = str_replace('./', '', $file);
     }
+    obs_file_upload($object, $file, $no_local_file);
+
+    //得到本地文件夹和远端文件夹
+    $dirname = dirname($metadata['file']);
+    $file_path = $dirname != '.' ? "{$basedir}/{$dirname}/" : "{$basedir}/";
+    $file_path = str_replace("\\", '/', $file_path);
+    if ($upload_path == '.') {
+        $file_path = str_replace('./', '', $file_path);
+    }
+    $object_path = str_replace(get_home_path(), '', $file_path);
+
+    if (!empty($metadata['original_image'])) {
+        obs_file_upload("/{$object_path}{$metadata['original_image']}", "{$file_path}{$metadata['original_image']}", $no_local_file);
+    }
+
+    //如果禁止上传缩略图，就不用继续执行了
+    if ($no_thumb) {
+        return $metadata;
+    }
+
     //上传所有缩略图
-    if (isset($metadata['sizes']) && count($metadata['sizes']) > 0) {
-        //是否需要上传缩略图
-        $nothumb = (esc_attr($obs_options['nothumb']) == 'true');
-        //如果禁止上传缩略图，就不用继续执行了
-        if ($nothumb) {
-            return $metadata;
-        }
-        //得到本地文件夹和远端文件夹
-        $file_path = $basedir . '/' . dirname($metadata['file']) . '/';
-        $file_path = str_replace("\\", '/', $file_path);
-        if (get_option('upload_path') == '.') {
-            $file_path = str_replace('./', '', $file_path);
-        }
-
-        $object_path = str_replace(get_home_path(), '', $file_path);
-
-        //there may be duplicated filenames,so ....
+    if (!empty($metadata['sizes'])) {
         foreach ($metadata['sizes'] as $val) {
-            //生成object在obs中的存储路径
             $object = '/' . $object_path . $val['file'];
-            //生成本地存储路径
             $file = $file_path . $val['file'];
 
-            //执行上传操作
-            obs_file_upload($object, $file, (esc_attr($obs_options['nolocalsaving']) == 'true'));
+            obs_file_upload($object, $file, $no_local_file);
         }
     }
-    return $metadata;
-}
 
-//避免上传插件/主题时出现同步到obs的情况
-if (substr_count($_SERVER['REQUEST_URI'], '/update.php') <= 0) {
-    add_filter('wp_generate_attachment_metadata', 'obs_upload_thumbs', 100);
+    return $metadata;
 }
 
 /**
  * 删除远端文件，删除文件时触发
  * @param $post_id
  */
-function obs_delete_remote_attachment($post_id) {
-    $meta = wp_get_attachment_metadata( $post_id );
+function obs_delete_remote_attachment($post_id)
+{
+    $wp_uploads = wp_upload_dir();
+    $basedir = $wp_uploads['basedir'];
+    $upload_path = str_replace(get_home_path(), '', $basedir);
+    $meta = wp_get_attachment_metadata($post_id);
 
-    if (isset($meta['file'])) {
+    if (!empty($meta['file'])) {
         $deleteObjects = [];
 
         // meta['file']的格式为 "2020/01/wp-bg.png"
-        $upload_path = get_option('upload_path');
-        if ($upload_path == '') {
-            $upload_path = 'wp-content/uploads';
+        $file_path = $upload_path . '/' . $meta['file'];
+        $dirname = dirname($file_path) . '/';
+
+        $deleteObjects[] = $file_path;
+
+        // 超大图原图
+        if (!empty($meta['original_image'])) {
+            $deleteObjects[] = $dirname . $meta['original_image'];
         }
 
-        $file_path = $upload_path . '/' . $meta['file'];
-
-        $deleteObjects[] = ['Key' => str_replace("\\", '/', $file_path)];
-
-//        $obs_options = get_option('obs_options', true);
-//        $is_nothumb = (esc_attr($obs_options['nothumb']) == 'false');
-//        if ($is_nothumb) {
-            // 删除缩略图
-            if (isset($meta['sizes']) && count($meta['sizes']) > 0) {
-                foreach ($meta['sizes'] as $val) {
-                    $size_file = dirname($file_path) . '/' . $val['file'];
-                    $deleteObjects[] = ['Key' => str_replace("\\", '/', $size_file)];
-                }
+        // 删除缩略图
+        if (!empty($meta['sizes'])) {
+            foreach ($meta['sizes'] as $val) {
+                $deleteObjects[] = $dirname . $val['file'];
             }
-//        }
+        }
+
+        $backup_sizes = get_post_meta($post_id, '_wp_attachment_backup_sizes', true);
+        if (is_array($backup_sizes)) {
+            foreach ($backup_sizes as $size) {
+                $deleteObjects[] = $dirname . $size['file'];
+            }
+        }
 
         obs_delete_obs_files($deleteObjects);
     }
@@ -293,7 +308,7 @@ add_action('delete_attachment', 'obs_delete_remote_attachment');
 function obs_modefiy_img_url($url, $post_id)
 {
     // 移除 ./ 和 项目根路径
-    $url = str_replace(array('./', get_home_path()), array('', ''), $url);
+    $url = str_replace(['./', get_home_path()], '', $url);
     return $url;
 }
 
@@ -303,7 +318,7 @@ if (get_option('upload_path') == '.') {
 
 function obs_function_each(&$array)
 {
-    $res = array();
+    $res = [];
     $key = key($array);
     if ($key !== null) {
         next($array);
@@ -316,41 +331,70 @@ function obs_function_each(&$array)
 }
 
 /**
- * @param $dir
+ * @param string $homePath
+ * @param string $uploadPath
  * @return array
  */
-function obs_read_dir_queue($dir)
+function obs_read_dir_queue($homePath, $uploadPath)
 {
-    $dd = [];
+    $dir = $homePath . $uploadPath;
+    $dirsToProcess = new SplQueue();
+    $dirsToProcess->enqueue([$dir, '']);
+    $foundFiles = [];
 
-    if (isset($dir)) {
-        $files = array();
-        $queue = array($dir);
-        while ($data = obs_function_each($queue)) {
-            $path = $data['value'];
-            if (is_dir($path) && $handle = opendir($path)) {
-                while ($file = readdir($handle)) {
-                    if ($file == '.' || $file == '..') {
-                        continue;
-                    }
-                    $files[] = $real_path = $path . '/' . $file;
-                    if (is_dir($real_path)) {
-                        $queue[] = $real_path;
-                    }
-                    //echo explode(get_option('upload_path'),$path)[1];
-                }
-            }
-            closedir($handle);
-        }
-        $upload_path = get_option('upload_path');
-        foreach ($files as $v) {
-            if (!is_dir($v)) {
-                $dd[] = ['filepath' => $v, 'key' =>  '/' . $upload_path . explode($upload_path, $v)[1]];
+    while (!$dirsToProcess->isEmpty()) {
+        [$currentDir, $relativeDir] = $dirsToProcess->dequeue();
+
+        foreach (new DirectoryIterator($currentDir) as $fileInfo) {
+            if ($fileInfo->isDot()) continue;
+
+            $filepath = $fileInfo->getRealPath();
+
+            // Compute the relative path of the file/directory with respect to upload path
+            $currentRelativeDir = "{$relativeDir}/{$fileInfo->getFilename()}";
+
+            if ($fileInfo->isDir()) {
+                $dirsToProcess->enqueue([$filepath, $currentRelativeDir]);
+            } else {
+                // Add file path and key to the result array
+                $foundFiles[] = [
+                    'filepath' => $filepath,
+                    'key' => '/' . $uploadPath . $currentRelativeDir
+                ];
             }
         }
     }
 
-    return $dd;
+    return $foundFiles;
+}
+
+function obs_get_regional($regional)
+{
+    $options = [
+        'af-south-1' => '非洲-约翰内斯堡',
+        'ap-southeast-1' => '中国-香港',
+        'ap-southeast-2' => '亚太-曼谷',
+        'ap-southeast-3' => '亚太-新加坡',
+        'ap-southeast-4' => '亚太-雅加达',
+        'cn-east-2' => '华东-上海二',
+        'cn-east-3' => '华东-上海一',
+        'cn-north-1' => '华北-北京一',
+        'cn-north-4' => '华北-北京四',
+        'cn-north-9' => '华北-乌兰察布一',
+        'cn-south-1' => '华南-广州',
+        'cn-south-2' => '华南-深圳',
+        'cn-south-4' => '华南-广州-友好用户环境',
+        'cn-southwest-2' => '西南-贵阳一',
+        'la-north-2' => '拉美-墨西哥城二',
+        'la-south-2' => '拉美-圣地亚哥',
+        'na-mexico-1' => '拉美-墨西哥城一',
+        'sa-brazil-1' => '拉美-圣保罗一',
+        'tr-west-1' => '土耳其-伊斯坦布尔',
+    ];
+    foreach ($options as $value => $info) {
+        $selected = $regional == $value ? 'selected="selected"' : '';
+        echo '<option value="' . $value . '" ' . $selected . '>' . $info . '</option>';
+    }
 }
 
 // 在插件列表页添加设置按钮
@@ -378,7 +422,7 @@ function obs_setting_page()
     if (!current_user_can('manage_options')) {
         wp_die('Insufficient privileges!');
     }
-    $options = array();
+    $options = [];
     if (!empty($_POST) and $_POST['type'] == 'obs_set') {
         $options['bucket'] = isset($_POST['bucket']) ? sanitize_text_field($_POST['bucket']) : '';
         $options['regional'] = isset($_POST['regional']) ? sanitize_text_field($_POST['regional']) : '';
@@ -391,11 +435,11 @@ function obs_setting_page()
     }
 
     if (!empty($_POST) and $_POST['type'] == 'huaweicloud_obs_all') {
-        $sync = obs_read_dir_queue(get_home_path() . get_option('upload_path'));
-        foreach ($sync as $k) {
-            obs_file_upload($k['key'], $k['filepath']);
+        $files = obs_read_dir_queue(get_home_path(), get_option('upload_path'));
+        foreach ($files as $file) {
+            obs_file_upload($file['key'], $file['filepath']);
         }
-        echo '<div class="updated"><p><strong>本次操作成功同步' . count($sync) . '个文件</strong></p></div>';
+        echo '<div class="updated"><p><strong>本次操作成功同步' . count($files) . '个文件</strong></p></div>';
     }
 
     // 替换数据库链接
@@ -416,7 +460,7 @@ function obs_setting_page()
     }
 
     // 若$options不为空数组，则更新数据
-    if ($options !== array()) {
+    if ($options !== []) {
         //更新数据库
         update_option('obs_options', $options);
 
@@ -428,7 +472,7 @@ function obs_setting_page()
         echo '<div class="updated"><p><strong>设置已保存！</strong></p></div>';
     }
 
-    $obs_options = get_option('obs_options', true);
+    $obs_options = get_option('obs_options', obs_get_default_options());
     $upload_path = get_option('upload_path');
     $upload_url_path = get_option('upload_url_path');
 
@@ -438,10 +482,10 @@ function obs_setting_page()
     $obs_secret = esc_attr($obs_options['secret']);
 
     $obs_nothumb = esc_attr($obs_options['nothumb']);
-    $obs_nothumb = ($obs_nothumb == 'true');
+    $obs_nothumb = $obs_nothumb == 'true';
 
     $obs_nolocalsaving = esc_attr($obs_options['nolocalsaving']);
-    $obs_nolocalsaving = ($obs_nolocalsaving == 'true');
+    $obs_nolocalsaving = $obs_nolocalsaving == 'true';
     
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
     ?>
@@ -465,18 +509,8 @@ function obs_setting_page()
                     <th>
                         <legend>区域</legend>
                     </th>
-                    <td><select name="regional">
-                            <option value="af-south-1" <?php if ($obs_regional == 'af-south-1') {echo ' selected="selected"';}?>>非洲-约翰内斯堡</option>
-                            <option value="cn-north-4" <?php if ($obs_regional == 'cn-north-4') {echo ' selected="selected"';}?>>华北-北京四</option>
-                            <option value="cn-north-1" <?php if ($obs_regional == 'cn-north-1') {echo ' selected="selected"';}?>>华北-北京一</option>
-                            <option value="cn-east-2" <?php if ($obs_regional == 'cn-east-2') {echo ' selected="selected"';}?>>华东-上海二</option>
-                            <option value="cn-east-3" <?php if ($obs_regional == 'cn-east-3') {echo ' selected="selected"';}?>>华东-上海一</option>
-                            <option value="cn-south-1" <?php if ($obs_regional == 'cn-south-1') {echo ' selected="selected"';}?>>华南-广州</option>
-                            <option value="cn-southwest-2" <?php if ($obs_regional == 'cn-southwest-2') {echo ' selected="selected"';}?>>西南-贵阳一</option>
-                            <option value="ap-southeast-2" <?php if ($obs_regional == 'ap-southeast-2') {echo ' selected="selected"';}?>>亚太-曼谷</option>
-                            <option value="ap-southeast-1" <?php if ($obs_regional == 'ap-southeast-1') {echo ' selected="selected"';}?>>亚太-香港</option>
-                            <option value="ap-southeast-3" <?php if ($obs_regional == 'ap-southeast-3') {echo ' selected="selected"';}?>>亚太-新加坡</option>
-                        </select>
+                    <td>
+                        <select name="regional"><?php obs_get_regional($obs_regional); ?></select>
                         <p>请选择您创建的<code>桶</code>所在区域</p>
                     </td>
                 </tr>

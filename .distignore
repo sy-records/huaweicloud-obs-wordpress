@@ -9,3 +9,4 @@
 /.distignore
 /sdk/composer.lock
 /sdk/vendor/obs/esdk-obs-php/release
+/sdk/vendor/obs/esdk-obs-php/examples

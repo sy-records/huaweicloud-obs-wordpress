@@ -8,4 +8,5 @@ jobs:
     uses: sy-records/.github/.github/workflows/wordpress-plugin-deploy.yaml@main
     with:
       build: true
+      php: '7.2'
     secrets: inherit
