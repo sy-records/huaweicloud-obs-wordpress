@@ -5,7 +5,7 @@ Tags: OBS, 华为云, 对象存储, HuaWei
 Requires at least: 4.6
 Tested up to: 6.7
 Requires PHP: 7.2
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: Apache 2.0
 License URI: http://www.apache.org/licenses/LICENSE-2.0.html
 
@@ -26,7 +26,8 @@ License URI: http://www.apache.org/licenses/LICENSE-2.0.html
 4. 支持替换数据库中旧的资源链接地址
 5. 支持华为云对象存储OBS完整地域使用
 6. 支持同步历史附件到华为云对象存储OBS
-7. 插件更多详细介绍和安装：[https://github.com/sy-records/huaweicloud-obs-wordpress](https://github.com/sy-records/huaweicloud-obs-wordpress)
+7. 支持上传文件自动重命名
+8. 插件更多详细介绍和安装：[https://github.com/sy-records/huaweicloud-obs-wordpress](https://github.com/sy-records/huaweicloud-obs-wordpress)
 
 ## 其他插件
 
@@ -49,8 +50,8 @@ QQ交流群：887595381
 
 == Screenshots ==
 
-1. screenshot-1.png
-2. screenshot-2.png
+1. 插件设置页面
+2. 替换数据库链接
 
 == Frequently Asked Questions ==
 
@@ -59,6 +60,9 @@ QQ交流群：887595381
 这个插件已经加上了替换数据库中之前的旧资源地址链接功能，只需要填好对应的链接即可
 
 == Changelog ==
+
+= 1.4.1 =
+* 支持上传文件自动重命名
 
 = 1.4.0 =
 * 同步支持地域

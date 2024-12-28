@@ -3,7 +3,7 @@
 Plugin Name: OBS HuaWeiCloud
 Plugin URI: https://github.com/sy-records/huaweicloud-obs-wordpress
 Description: 使用华为云对象存储服务 OBS 作为附件存储空间。（This is a plugin that uses HuaWei Cloud Object Storage Service for attachments remote saving.）
-Version: 1.4.0
+Version: 1.4.1
 Author: 沈唁
 Author URI: https://qq52o.me
 License: Apache 2.0
@@ -14,7 +14,7 @@ require_once 'sdk/vendor/autoload.php';
 use Obs\ObsClient;
 use Obs\ObsException;
 
-define('OBS_VERSION', '1.4.0');
+define('OBS_VERSION', '1.4.1');
 define('OBS_BASEFOLDER', plugin_basename(dirname(__FILE__)));
 
 if (!function_exists('get_home_path')) {
@@ -463,16 +463,20 @@ function obs_setting_page()
         $old_url = esc_url_raw($_POST['old_url']);
         $new_url = esc_url_raw($_POST['new_url']);
 
-        global $wpdb;
-        $posts_name = $wpdb->prefix .'posts';
-        // 文章内容
-        $posts_result = $wpdb->query("UPDATE $posts_name SET post_content = REPLACE( post_content, '$old_url', '$new_url') ");
+        if (!empty($old_url) && !empty($new_url)) {
+            global $wpdb;
+            // 文章内容
+            $posts_name = $wpdb->prefix . 'posts';
+            $posts_result = $wpdb->query($wpdb->prepare("UPDATE $posts_name SET post_content = REPLACE(post_content, '%s', '%s')", [$old_url, $new_url]));
 
-        // 修改题图之类的
-        $postmeta_name = $wpdb->prefix .'postmeta';
-        $postmeta_result = $wpdb->query("UPDATE $postmeta_name SET meta_value = REPLACE( meta_value, '$old_url', '$new_url') ");
+            // 修改题图之类的
+            $postmeta_name = $wpdb->prefix . 'postmeta';
+            $postmeta_result = $wpdb->query($wpdb->prepare("UPDATE $postmeta_name SET meta_value = REPLACE(meta_value, '%s', '%s')", [$old_url, $new_url]));
 
-        echo '<div class="updated"><p><strong>替换成功！共替换文章内链'.$posts_result.'条、题图链接'.$postmeta_result.'条！</strong></p></div>';
+            echo '<div class="updated"><p><strong>替换成功！共替换文章内链' . $posts_result . '条、题图链接' . $postmeta_result . '条！</strong></p></div>';
+        } else {
+            echo '<div class="error"><p><strong>请填写资源链接URL地址！</strong></p></div>';
+        }
     }
 
     // 若$options不为空数组，则更新数据
@@ -481,7 +485,7 @@ function obs_setting_page()
         update_option('obs_options', $options);
 
         $upload_path = sanitize_text_field(trim(stripslashes($_POST['upload_path']), '/'));
-        $upload_path = ($upload_path == '') ? ('wp-content/uploads') : ($upload_path);
+        $upload_path = $upload_path == '' ? 'wp-content/uploads' : $upload_path;
         update_option('upload_path', $upload_path);
         $upload_url_path = sanitize_text_field(trim(stripslashes($_POST['upload_url_path']), '/'));
         update_option('upload_url_path', $upload_url_path);
