@@ -26,13 +26,14 @@ register_activation_hook(__FILE__, 'obs_set_options');
 function obs_get_default_options()
 {
     return [
-        'bucket' => "",
-        'regional' => "cn-east-3",
-        'key' => "",
-        'secret' => "",
-        'nothumb' => "false", // 是否上传缩略图
-        'nolocalsaving' => "false", // 是否保留本地备份
-        'upload_url_path' => "", // URL前缀
+        'bucket' => '',
+        'regional' => 'cn-east-3',
+        'key' => '',
+        'secret' => '',
+        'nothumb' => 'false', // 是否上传缩略图
+        'nolocalsaving' => 'false', // 是否保留本地备份
+        'upload_url_path' => '', // URL前缀
+        'update_file_name' => 'false', // 是否更新文件名
     ];
 }
 function obs_set_options()
@@ -53,7 +54,7 @@ function obs_get_client()
 function obs_get_bucket_endpoint($obs_option)
 {
     $obs_regional = esc_attr($obs_option['regional']);
-    return "obs.". $obs_regional . ".myhuaweicloud.com";
+    return 'obs.'. $obs_regional . '.myhuaweicloud.com';
 }
 
 function obs_get_bucket_name()
@@ -103,7 +104,7 @@ function obs_is_delete_local_file()
 /**
  * 删除本地文件
  *
- * @param  $file 本地文件路径
+ * @param string $file 本地文件路径
  * @return bool
  */
 function obs_delete_local_file($file)
@@ -316,6 +317,20 @@ if (get_option('upload_path') == '.') {
     add_filter('wp_get_attachment_url', 'obs_modefiy_img_url', 30, 2);
 }
 
+function obs_sanitize_file_name($filename)
+{
+    $obs_options = get_option('obs_options', obs_get_default_options());
+    switch ($obs_options['update_file_name']) {
+        case 'md5':
+            return md5($filename) . '.' . pathinfo($filename, PATHINFO_EXTENSION);
+        case 'time':
+            return gmdate('YmdHis', current_time('timestamp')) . wp_rand(100, 999) . '.' . pathinfo($filename, PATHINFO_EXTENSION);
+        default:
+            return $filename;
+    }
+}
+add_filter('sanitize_file_name', 'obs_sanitize_file_name', 10, 1);
+
 function obs_function_each(&$array)
 {
     $res = [];
@@ -423,7 +438,7 @@ function obs_setting_page()
         wp_die('Insufficient privileges!');
     }
     $options = [];
-    if (!empty($_POST) and $_POST['type'] == 'obs_set') {
+    if (!empty($_POST) && $_POST['type'] == 'obs_set') {
         $options['bucket'] = isset($_POST['bucket']) ? sanitize_text_field($_POST['bucket']) : '';
         $options['regional'] = isset($_POST['regional']) ? sanitize_text_field($_POST['regional']) : '';
         $options['key'] = isset($_POST['key']) ? sanitize_text_field($_POST['key']) : '';
@@ -432,9 +447,10 @@ function obs_setting_page()
         $options['nolocalsaving'] = isset($_POST['nolocalsaving']) ? 'true' : 'false';
         //仅用于插件卸载时比较使用
         $options['upload_url_path'] = isset($_POST['upload_url_path']) ? sanitize_text_field(stripslashes($_POST['upload_url_path'])) : '';
+        $options['update_file_name'] = isset($_POST['update_file_name']) ? sanitize_text_field($_POST['update_file_name']) : 'false';
     }
 
-    if (!empty($_POST) and $_POST['type'] == 'huaweicloud_obs_all') {
+    if (!empty($_POST) && $_POST['type'] == 'huaweicloud_obs_all') {
         $files = obs_read_dir_queue(get_home_path(), get_option('upload_path'));
         foreach ($files as $file) {
             obs_file_upload($file['key'], $file['filepath']);
@@ -443,7 +459,7 @@ function obs_setting_page()
     }
 
     // 替换数据库链接
-    if(!empty($_POST) and $_POST['type'] == 'huaweicloud_obs_replace') {
+    if(!empty($_POST) && $_POST['type'] == 'huaweicloud_obs_replace') {
         $old_url = esc_url_raw($_POST['old_url']);
         $new_url = esc_url_raw($_POST['new_url']);
 
@@ -486,8 +502,9 @@ function obs_setting_page()
 
     $obs_nolocalsaving = esc_attr($obs_options['nolocalsaving']);
     $obs_nolocalsaving = $obs_nolocalsaving == 'true';
-    
-    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+    $obs_update_file_name = esc_attr($obs_options['update_file_name'] ?? 'false');
+
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? 'https://' : 'http://';
     ?>
     <div class="wrap" style="margin: 10px;">
         <h1>华为云 OBS 设置 <span style="font-size: 13px;">当前版本：<?php echo OBS_VERSION; ?></span></h1>
@@ -533,7 +550,7 @@ function obs_setting_page()
                         <legend>不上传缩略图</legend>
                     </th>
                     <td>
-                        <input type="checkbox" name="nothumb" <?php if ($obs_nothumb) { echo 'checked="checked"'; } ?> />
+                        <input type="checkbox" name="nothumb" <?php echo $obs_nothumb ? 'checked="checked"' : ''; ?> />
                         <p>建议不勾选</p>
                     </td>
                 </tr>
@@ -542,10 +559,21 @@ function obs_setting_page()
                         <legend>不在本地保留备份</legend>
                     </th>
                     <td>
-                        <input type="checkbox"
-                               name="nolocalsaving" <?php if ($obs_nolocalsaving) { echo 'checked="checked"'; } ?> />
+                        <input type="checkbox" name="nolocalsaving" <?php echo $obs_nolocalsaving ? 'checked="checked"' : ''; ?> />
                         <p>建议不勾选</p>
                     </td>
+                </tr>
+                <tr>
+                  <th>
+                    <legend>自动重命名文件</legend>
+                  </th>
+                  <td>
+                    <select name="update_file_name">
+                      <option <?php echo $obs_update_file_name == 'false' ? 'selected="selected"' : '';?> value="false">不处理</option>
+                      <option <?php echo $obs_update_file_name == 'md5' ? 'selected="selected"' : '';?> value="md5">MD5</option>
+                      <option <?php echo $obs_update_file_name == 'time' ? 'selected="selected"' : '';?> value="time">时间戳+随机数</option>
+                    </select>
+                  </td>
                 </tr>
                 <tr>
                     <th>
