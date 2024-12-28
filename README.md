@@ -38,6 +38,6 @@ GitHub 下载节点：[https://github.com/sy-records/huaweicloud-obs-wordpress/r
 
 ## 插件截图
 
-![设置页面](.wordpress-org/screenshot-1.png)
+![插件设置页面](.wordpress-org/screenshot-1.png)
 
-![update-wordpress-posts-photos.png](.wordpress-org/screenshot-2.png)
+![替换数据库链接](.wordpress-org/screenshot-2.png)
