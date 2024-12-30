@@ -163,13 +163,14 @@ function obs_delete_obs_files($files)
  */
 function obs_upload_attachments($metadata)
 {
-    $mime_types = get_allowed_mime_types();
+    $mime_types = wp_get_mime_types();
     $image_mime_types = [
         $mime_types['jpg|jpeg|jpe'],
         $mime_types['gif'],
         $mime_types['png'],
         $mime_types['bmp'],
         $mime_types['tiff|tif'],
+        $mime_types['webp'],
         $mime_types['ico']
     ];
 
@@ -178,7 +179,7 @@ function obs_upload_attachments($metadata)
     if (!in_array($metadata['type'], $image_mime_types)) {
         //生成object在obs中的存储路径
         if (get_option('upload_path') == '.') {
-            $metadata['file'] = str_replace("./", '', $metadata['file']);
+            $metadata['file'] = str_replace('./', '', $metadata['file']);
         }
         $object = str_replace("\\", '/', $metadata['file']);
         $home_path = get_home_path();
