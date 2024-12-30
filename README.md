@@ -17,6 +17,7 @@
 * [x] 支持替换数据库中旧的资源链接地址
 * [x] 支持华为云对象存储OBS完整地域使用
 * [x] 支持同步历史附件到华为云对象存储OBS
+* [x] 支持上传文件自动重命名
 
 ## 安装
 
@@ -37,6 +38,6 @@ GitHub 下载节点：[https://github.com/sy-records/huaweicloud-obs-wordpress/r
 
 ## 插件截图
 
-![设置页面](.wordpress-org/screenshot-1.png)
+![插件设置页面](.wordpress-org/screenshot-1.png)
 
-![update-wordpress-posts-photos.png](.wordpress-org/screenshot-2.png)
+![替换数据库链接](.wordpress-org/screenshot-2.png)
