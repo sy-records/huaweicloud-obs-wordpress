@@ -3,7 +3,7 @@ Contributors: shenyanzhi
 Donate link: https://qq52o.me/sponsor.html
 Tags: OBS, 华为云, 对象存储, HuaWei
 Requires at least: 4.6
-Tested up to: 6.7
+Tested up to: 6.8
 Requires PHP: 7.2
 Stable tag: 1.4.1
 License: Apache 2.0
