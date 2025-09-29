@@ -3,7 +3,7 @@
 Plugin Name: OBS HuaWeiCloud
 Plugin URI: https://github.com/sy-records/huaweicloud-obs-wordpress
 Description: 使用华为云对象存储服务 OBS 作为附件存储空间。（This is a plugin that uses HuaWei Cloud Object Storage Service for attachments remote saving.）
-Version: 1.4.1
+Version: 1.4.2
 Author: 沈唁
 Author URI: https://qq52o.me
 License: Apache 2.0
@@ -14,7 +14,7 @@ require_once 'sdk/vendor/autoload.php';
 use Obs\ObsClient;
 use Obs\ObsException;
 
-define('OBS_VERSION', '1.4.1');
+define('OBS_VERSION', '1.4.2');
 define('OBS_BASEFOLDER', plugin_basename(dirname(__FILE__)));
 
 if (!function_exists('get_home_path')) {
@@ -135,7 +135,7 @@ function obs_delete_obs_file($file)
 {
     $bucket = obs_get_bucket_name();
     $obsClient = obs_get_client();
-    $obsClient->deleteObject(array('Bucket' => $bucket, 'Key' => $file));
+    $obsClient->deleteObject(['Bucket' => $bucket, 'Key' => $file]);
 }
 
 /**
@@ -152,7 +152,7 @@ function obs_delete_obs_files($files)
 
     $bucket = obs_get_bucket_name();
     $obsClient = obs_get_client();
-    $obsClient->deleteObjects(array('Bucket' => $bucket, 'Objects' => $deleteObjects, 'Quiet' => false));
+    $obsClient->deleteObjects(['Bucket' => $bucket, 'Objects' => $deleteObjects, 'Quiet' => false]);
 }
 
 /**
@@ -307,15 +307,14 @@ function obs_delete_remote_attachment($post_id)
 add_action('delete_attachment', 'obs_delete_remote_attachment');
 
 // 当upload_path为根目录时，需要移除URL中出现的“绝对路径”
-function obs_modefiy_img_url($url, $post_id)
+function obs_modify_img_url($url, $post_id)
 {
     // 移除 ./ 和 项目根路径
-    $url = str_replace(['./', get_home_path()], '', $url);
-    return $url;
+    return str_replace(['./', get_home_path()], '', $url);
 }
 
 if (get_option('upload_path') == '.') {
-    add_filter('wp_get_attachment_url', 'obs_modefiy_img_url', 30, 2);
+    add_filter('wp_get_attachment_url', 'obs_modify_img_url', 30, 2);
 }
 
 function obs_sanitize_file_name($filename)
@@ -331,20 +330,6 @@ function obs_sanitize_file_name($filename)
     }
 }
 add_filter('sanitize_file_name', 'obs_sanitize_file_name', 10, 1);
-
-function obs_function_each(&$array)
-{
-    $res = [];
-    $key = key($array);
-    if ($key !== null) {
-        next($array);
-        $res[1] = $res['value'] = $array[$key];
-        $res[0] = $res['key'] = $key;
-    } else {
-        $res = false;
-    }
-    return $res;
-}
 
 /**
  * @param string $homePath
@@ -438,15 +423,20 @@ function obs_setting_page()
     if (!current_user_can('manage_options')) {
         wp_die('Insufficient privileges!');
     }
+    if (!empty($_POST) && !empty($_POST['type'])) {
+        $nonce = $_POST["{$_POST['type']}-nonce"] ?? '';
+        if (empty($nonce) || !wp_verify_nonce($nonce, $_POST['type'])) {
+            wp_die('Illegal requests!');
+        }
+    }
     $options = [];
-    if (!empty($_POST) && $_POST['type'] == 'obs_set') {
+    if (!empty($_POST) && $_POST['type'] == 'huaweicloud_obs_set') {
         $options['bucket'] = isset($_POST['bucket']) ? sanitize_text_field($_POST['bucket']) : '';
         $options['regional'] = isset($_POST['regional']) ? sanitize_text_field($_POST['regional']) : '';
         $options['key'] = isset($_POST['key']) ? sanitize_text_field($_POST['key']) : '';
         $options['secret'] = isset($_POST['secret']) ? sanitize_text_field($_POST['secret']) : '';
         $options['nothumb'] = isset($_POST['nothumb']) ? 'true' : 'false';
         $options['nolocalsaving'] = isset($_POST['nolocalsaving']) ? 'true' : 'false';
-        //仅用于插件卸载时比较使用
         $options['upload_url_path'] = isset($_POST['upload_url_path']) ? sanitize_text_field(stripslashes($_POST['upload_url_path'])) : '';
         $options['update_file_name'] = isset($_POST['update_file_name']) ? sanitize_text_field($_POST['update_file_name']) : 'false';
     }
@@ -464,7 +454,7 @@ function obs_setting_page()
         $old_url = esc_url_raw($_POST['old_url']);
         $new_url = esc_url_raw($_POST['new_url']);
 
-        if (!empty($old_url) && !empty($new_url)) {
+        if (!empty($old_url)) {
             global $wpdb;
             // 文章内容
             $posts_name = $wpdb->prefix . 'posts';
@@ -510,19 +500,19 @@ function obs_setting_page()
     $obs_update_file_name = esc_attr($obs_options['update_file_name'] ?? 'false');
 
     $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? 'https://' : 'http://';
-    ?>
+?>
     <div class="wrap" style="margin: 10px;">
         <h1>华为云 OBS 设置 <span style="font-size: 13px;">当前版本：<?php echo OBS_VERSION; ?></span></h1>
         <p>如果觉得此插件对你有所帮助，不妨到 <a href="https://github.com/sy-records/huaweicloud-obs-wordpress" target="_blank">GitHub</a> 上点个<code>Star</code>，<code>Watch</code>关注更新；<a href="https://go.qq52o.me/qm/ccs" target="_blank">欢迎加入云存储插件交流群，QQ群号：887595381</a>；</p>
         <hr/>
-        <form name="form1" method="post" action="<?php echo wp_nonce_url('./options-general.php?page=' . OBS_BASEFOLDER . '/huaweicloud-obs-wordpress.php'); ?>">
+        <form method="post">
             <table class="form-table">
                 <tr>
                     <th>
                         <legend>桶名称</legend>
                     </th>
                     <td>
-                        <input type="text" name="bucket" value="<?php echo $obs_bucket; ?>" size="50" placeholder="请填写桶名称"/>
+                        <input type="text" name="bucket" required value="<?php echo $obs_bucket; ?>" size="50" placeholder="请填写桶名称"/>
 
                         <p>请先访问 <a href="https://storage.huaweicloud.com/obs/?region=cn-east-3#/obs/create" target="_blank">华为云控制台</a> 创建<code>桶</code>，再填写以上内容。</p>
                     </td>
@@ -540,14 +530,14 @@ function obs_setting_page()
                     <th>
                         <legend>key</legend>
                     </th>
-                    <td><input type="text" name="key" value="<?php echo $obs_key; ?>" size="50" placeholder="key"/></td>
+                    <td><input type="text" name="key" required value="<?php echo $obs_key; ?>" size="50" placeholder="key"/></td>
                 </tr>
                 <tr>
                     <th>
                         <legend>secret</legend>
                     </th>
                     <td>
-                        <input type="text" name="secret" value="<?php echo $obs_secret; ?>" size="50" placeholder="secret"/>
+                        <input type="text" name="secret" required value="<?php echo $obs_secret; ?>" size="50" placeholder="secret"/>
                     </td>
                 </tr>
                 <tr>
@@ -585,7 +575,7 @@ function obs_setting_page()
                         <legend>本地文件夹</legend>
                     </th>
                     <td>
-                        <input type="text" name="upload_path" value="<?php echo $upload_path; ?>" size="50" placeholder="请输入上传文件夹"/>
+                        <input type="text" name="upload_path" required value="<?php echo $upload_path; ?>" size="50" placeholder="请输入上传文件夹"/>
                         <p>附件在服务器上的存储位置，例如： <code>wp-content/uploads</code> （注意不要以“/”开头和结尾），根目录请输入<code>.</code>。</p>
                     </td>
                 </tr>
@@ -594,7 +584,7 @@ function obs_setting_page()
                         <legend>URL前缀</legend>
                     </th>
                     <td>
-                        <input type="text" name="upload_url_path" value="<?php echo $upload_url_path; ?>" size="50" placeholder="请输入URL前缀"/>
+                        <input type="text" name="upload_url_path" required value="<?php echo $upload_url_path; ?>" size="50" placeholder="请输入URL前缀"/>
 
                         <p><b>注意：</b></p>
 
@@ -607,27 +597,29 @@ function obs_setting_page()
                 </tr>
                 <tr>
                     <th><legend>保存/更新选项</legend></th>
-                    <td><input type="submit" name="submit" class="button button-primary" value="保存更改"/></td>
+                    <td><input type="submit" class="button button-primary" value="保存更改"/></td>
                 </tr>
             </table>
-            <input type="hidden" name="type" value="obs_set">
+            <input type="hidden" name="type" value="huaweicloud_obs_set">
+            <?php wp_nonce_field('huaweicloud_obs_set', 'huaweicloud_obs_set-nonce'); ?>
         </form>
-        <form name="form2" method="post" action="<?php echo wp_nonce_url('./options-general.php?page=' . OBS_BASEFOLDER . '/huaweicloud-obs-wordpress.php'); ?>">
+        <form method="post">
             <table class="form-table">
                 <tr>
                     <th>
                         <legend>同步历史附件</legend>
                     </th>
                     <input type="hidden" name="type" value="huaweicloud_obs_all">
+                    <?php wp_nonce_field('huaweicloud_obs_all', 'huaweicloud_obs_all-nonce'); ?>
                     <td>
-                        <input type="submit" name="submit" class="button button-secondary" value="开始同步"/>
+                        <input type="submit" class="button button-secondary" value="开始同步"/>
                         <p><b>注意：如果是首次同步，执行时间将会十分十分长（根据你的历史附件数量），有可能会因执行时间过长，页面显示超时或者报错。<br> 所以，建议那些几千上万附件的大神们，考虑官方的 <a target="_blank" rel="nofollow" href="https://support.huaweicloud.com/utiltg-obs/obs_11_0001.html">同步工具</a></b></p>
                     </td>
                 </tr>
             </table>
         </form>
         <hr>
-        <form name="form3" method="post" action="<?php echo wp_nonce_url('./options-general.php?page=' . OBS_BASEFOLDER . '/huaweicloud-obs-wordpress.php'); ?>">
+        <form method="post">
             <table class="form-table">
                 <tr>
                     <th>
@@ -650,8 +642,9 @@ function obs_setting_page()
                         <legend></legend>
                     </th>
                     <input type="hidden" name="type" value="huaweicloud_obs_replace">
+                    <?php wp_nonce_field('huaweicloud_obs_replace', 'huaweicloud_obs_replace-nonce'); ?>
                     <td>
-                        <input type="submit" name="submit"  class="button button-secondary" value="开始替换"/>
+                        <input type="submit" class="button button-secondary" value="开始替换"/>
                         <p><b>注意：如果是首次替换，请注意备份！此功能会替换文章以及设置的特色图片（题图）等使用的资源链接</b></p>
                     </td>
                 </tr>
