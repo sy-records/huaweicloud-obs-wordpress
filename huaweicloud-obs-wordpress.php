@@ -3,7 +3,7 @@
 Plugin Name: OBS HuaWeiCloud
 Plugin URI: https://github.com/sy-records/huaweicloud-obs-wordpress
 Description: 使用华为云对象存储服务 OBS 作为附件存储空间。（This is a plugin that uses HuaWei Cloud Object Storage Service for attachments remote saving.）
-Version: 1.4.2
+Version: 1.4.3
 Author: 沈唁
 Author URI: https://qq52o.me
 License: Apache 2.0
@@ -14,7 +14,7 @@ require_once 'sdk/vendor/autoload.php';
 use Obs\ObsClient;
 use Obs\ObsException;
 
-define('OBS_VERSION', '1.4.2');
+define('OBS_VERSION', '1.4.3');
 define('OBS_BASEFOLDER', plugin_basename(dirname(__FILE__)));
 
 if (!function_exists('get_home_path')) {
@@ -372,25 +372,29 @@ function obs_read_dir_queue($homePath, $uploadPath)
 function obs_get_regional($regional)
 {
     $options = [
-        'af-south-1' => '非洲-约翰内斯堡',
+        'cn-north-4'     => '华北-北京四',
+        'cn-north-9'     => '华北-乌兰察布一',
+        'cn-north-12'    => '华北三',
+        'cn-east-3'      => '华东-上海一',
+        'cn-east-2'      => '华东-上海二',
+        'cn-east-5'      => '华东-青岛',
+        'cn-east-4'      => '华东二',
+        'cn-south-1'     => '华南-广州',
+        'cn-south-4'     => '华南-广州-友好用户环境',
+        'cn-southwest-2' => '西南-贵阳一',
         'ap-southeast-1' => '中国-香港',
         'ap-southeast-2' => '亚太-曼谷',
         'ap-southeast-3' => '亚太-新加坡',
         'ap-southeast-4' => '亚太-雅加达',
-        'cn-east-2' => '华东-上海二',
-        'cn-east-3' => '华东-上海一',
-        'cn-north-1' => '华北-北京一',
-        'cn-north-4' => '华北-北京四',
-        'cn-north-9' => '华北-乌兰察布一',
-        'cn-south-1' => '华南-广州',
-        'cn-south-2' => '华南-深圳',
-        'cn-south-4' => '华南-广州-友好用户环境',
-        'cn-southwest-2' => '西南-贵阳一',
-        'la-north-2' => '拉美-墨西哥城二',
-        'la-south-2' => '拉美-圣地亚哥',
-        'na-mexico-1' => '拉美-墨西哥城一',
-        'sa-brazil-1' => '拉美-圣保罗一',
-        'tr-west-1' => '土耳其-伊斯坦布尔',
+        'ap-southeast-5' => '亚太-马尼拉',
+        'me-east-1'      => '中东-利雅得',
+        'af-north-1'     => '非洲-开罗',
+        'af-south-1'     => '非洲-约翰内斯堡',
+        'tr-west-1'      => '土耳其-伊斯坦布尔',
+        'na-mexico-1'    => '拉美-墨西哥城一',
+        'la-north-2'     => '拉美-墨西哥城二',
+        'sa-brazil-1'    => '拉美-圣保罗一',
+        'la-south-2'     => '拉美-圣地亚哥',
     ];
     foreach ($options as $value => $info) {
         $selected = $regional == $value ? 'selected="selected"' : '';
